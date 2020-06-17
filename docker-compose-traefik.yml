@@ -1,0 +1,61 @@
+version: '3'
+
+services:
+    traefik:
+        container_name: traefik
+        image: traefik:v2.0
+        command:
+            # enable insecure api. Not recommended for production
+            - "--api.insecure=true"
+            # enable the dashboard to view services, middlewares, routers, etc...
+            - --api.dashboard=true
+            # enable additional endpoints for debugging and profiling
+            - --api.debug=true
+            # define entrypoint for http on port :80 name web
+            - --entrypoints.web.address=:80
+            # Defining an entrypoint for https on port :443 named web-secured
+            - --entrypoints.web-secured.address=:443
+            # enable docker as a provider for traefik
+            - "--providers.docker=true"
+            # don't expose every container by default
+            - --providers.docker.exposedbydefault=false
+            # operate on a docker network named web
+            - --providers.docker.network=web
+            - "--certificatesResolvers.le.acme.email=yoanyombapro@gmail.com"
+            - "--certificatesResolvers.le.acme.storage=acme.json"
+            - "--certificatesResolvers.le.acme.tlsChallenge=true"
+            - "--certificatesResolvers.le.acme.httpChallenge=true"
+            - "--certificatesResolvers.le.acme.httpChallenge.entryPoint=web"
+
+        ports:
+            - 80:80
+            - 443:443
+            - 8080:8080
+        networks:
+            - web
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./acme.json:/acme.json
+        labels:
+
+            # Redirect all HTTP to HTTPS permanently
+            - traefik.http.routers.http_catchall.rule=HostRegexp(`{any:.+}`)
+            - traefik.http.routers.http_catchall.entrypoints=web
+            - traefik.http.routers.http_catchall.middlewares=https_redirect
+            - traefik.http.middlewares.https_redirect.redirectscheme.scheme=https
+            - traefik.http.middlewares.https_redirect.redirectscheme.permanent=true
+
+    whoami:
+        image: "containous/whoami"
+        container_name: "simple-service"
+        restart: always
+        networks:
+            - web
+        labels:
+          - traefik.http.routers.whoami.rule=Host(`whoami.localhost`)
+          - traefik.http.routers.whoami.tls=true
+          - traefik.http.routers.whoami.tls.certresolver=le
+
+networks:
+    web:
+        external: true

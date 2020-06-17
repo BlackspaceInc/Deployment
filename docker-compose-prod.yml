@@ -1,0 +1,497 @@
+version: "3.3"
+
+services:
+  ################################################
+  ####        Traefik Proxy Setup           #####
+  ###############################################
+  reverse-proxy:
+    image: traefik:v2.0
+    restart: always
+    container_name: traefik
+    ports:
+      # http port
+      - "80:80"
+      # port the dashboard runs on
+      - "8080:8080" #
+      # https port
+      - "443:443"
+    command:
+      # Youtube link : https://www.youtube.com/watch?v=Gk9WER6DunE
+      #### These are the CLI commands that will configure Traefik and tell it how to work! ####
+      ## API Settings - https://docs.traefik.io/operations/api/, endpoints - https://docs.traefik.io/operations/api/#endpoints ##
+      - --api.insecure=true # <== Enabling insecure api, NOT RECOMMENDED FOR PRODUCTION
+      - --api.dashboard=true # <== Enabling the dashboard to view services, middlewares, routers, etc...
+      - --api.debug=true # <== Enabling additional endpoints for debugging and profiling
+      - --api.entrypoint=dashboard
+      ## Log Settings (options: ERROR, DEBUG, PANIC, FATAL, WARN, INFO) - https://docs.traefik.io/observability/logs/ ##
+      - --log.level=DEBUG # <== Setting the level of the logs from traefik
+      ## Provider Settings - https://docs.traefik.io/providers/docker/#provider-configuration ##
+      - --providers.docker=true # <== Enabling docker as the provider for traefik
+      - --providers.docker.exposedbydefault=false # <== Don't expose every container to traefik, only expose enabled ones
+      - --providers.file.filename=/dynamic.yaml # <== Referring to a dynamic configuration file
+      - --providers.docker.network=web # <== Operate on the docker network named web
+      ## Entrypoints Settings - https://docs.traefik.io/routing/entrypoints/#configuration
+      # Defining an entrypoint for port :80 named web
+      - --entrypoints.web.address=:80 # <== 
+      # Defining an entrypoint for https on port :443 named web-secured
+      - --entrypoints.web-secured.address=:443
+      - --entrypoints.dashboard.address=:8080
+      - --entryPoints.metrics.address=:9090 
+      ## Certificate Settings (Let's Encrypt) -  https://docs.traefik.io/https/acme/#configuration-examples ##
+      # mechanism to generate certificates called cert-gen its an acme resolver and my account is yoanyombapro@gmail.com
+      - --certificatesresolvers.certgen.acme.email=yoanyombapro@email.com
+      # Defining acme file to store cert information
+      - --certificatesresolvers.certgen.acme.storage=/letsencrypt//acme.json
+      # Enable TLS-ALPN-01 to generate and renew ACME certs
+      - --certificatesresolvers.certgen.acme.tlschallenge=true
+      - --certificatesresolvers.certgen.acme.httpchallenge=true
+      - --accesslog
+      - --certificatesresolvers.certgen.acme.httpchallenge.entrypoint=web
+      - --tracing.zipkin=true
+      - --tracing.zipkin.httpEndpoint=http://zipkin:9411/api/v2/spans
+      - --tracing.zipkin.sameSpan=true
+      - --tracing.zipkin.id128Bit=true
+      - --tracing.zipkin.sampleRate=1
+      - --metrics
+      - --metrics.prometheus=true
+      - --metrics.prometheus.buckets=0.100000, 0.300000, 1.200000, 5.000000
+      - --metrics.prometheus.addEntryPointsLabels=true
+      - --metrics.prometheus.addServicesLabels=true
+
+    volumes:
+      - ./letsencrypt:/letsencrypt # <== Volume for certs (TLS)
+      - /var/run/docker.sock:/var/run/docker.sock # <== Volume for docker admin
+      - ./monitoring/traefik/dynamic.yaml:/dynamic.yaml # <== Volume for dynamic conf file, **ref: line 27
+    networks:
+      - monitor-net # <== Placing traefik on the network named web, to access containers on this network
+    labels:
+      #### Labels define the behavior and rules of the traefik proxy for this container ####
+      - "traefik.enable=true" # <== Enable traefik on itself to view dashboard and assign subdomain to view it
+      - "traefik.http.middlewares.prefix.addprefix.prefix=/v1"
+      # retry 5 times in case of network error
+      - "traefik.http.middlewares.limit.buffering.retryExpression=IsNetworkError() && Attempts() < 5" 
+      # max request body is 20mb
+      - "traefik.http.middlewares.limit.buffering.maxRequestBodyBytes=20000000" 
+      # configure the maximum allowed response size from the service (in Bytes).
+      - "traefik.http.middlewares.limit.buffering.maxResponseBodyBytes=20000000" 
+      # configure a threshold (in Bytes) from which the response will be buffered on disk instead of in memory
+      - "traefik.http.middlewares.limit.buffering.memResponseBodyBytes=20000000"
+      # SourceCriterion defines what criterion is used to group requests as originating from a requestutils source. The precedence order is ipStrategy, then requestHeaderName, then requestHost. If none are set, the default is to use the requestHost.
+      - "traefik.http.middlewares.limit.inflightreq.sourcecriterion.ipstrategy.depth=2"
+      - "traefik.http.middlewares.limit.ratelimit.average=100"
+      - "traefik.http.middlewares.limit.ratelimit.burst=50"
+      - "traefik.http.middlewares.limit.ratelimit.sourcecriterion.ipstrategy.excludedips=127.0.0.1/32, 192.168.1.7"
+      - "traefik.http.middlewares.limit.retry.attempts=3"
+      - "traefik.http.middlewares.breaker.circuitbreaker.expression=LatencyAtQuantileMS(50.0) > 100"
+      # trigger circuit breaker when a proportion of requests become too slow
+      # and will trigger the circuit breaker if 30% of the requests returned a 5XX status (amongst the request that returned a status code from 0 to 5XX).
+      - "traefik.http.middlewares.breaker.circuitbreaker.expression=ResponseCodeRatio(500, 600, 0, 600) > 0.30 || NetworkErrorRatio() > 0.10" 
+      # enable gzip compression
+      - "traefik.http.middlewares.compress.compress=true" 
+      # The ForwardAuth middleware delegate the authentication to an external service. If the service response code is 2XX, access is granted and the original request is performed. Otherwise, the response from the authentication server is returned.
+      # autoDetect specifies whether to let the Content-Type header, if it has not been set by the backend, be automatically set to a value derived from the contents of the response.
+      - "traefik.http.middlewares.autodetect.contenttype.autodetect=true" 
+      # The address option defines the authentication server address.
+      - "traefik.http.middlewares.auth.forwardauth.address=https://authentication-service:8765/"
+      # The authResponseHeaders option is the list of the headers to copy from the authentication server to the request. 
+      - "traefik.http.middlewares.auth.forwardauth.authResponseHeaders=X-Auth-User, X-Secret"
+      # Set the trustForwardHeader option to true to trust all the existing X-Forwarded-* headers. 
+      - "traefik.http.middlewares.auth.forwardauth.trustForwardHeader=true" 
+      # Security related headers (HSTS headers, SSL redirection, Browser XSS filter, etc) can be added and configured in a manner similar to the custom headers above. This functionality allows for some easy security features to quickly be set.
+      - "traefik.http.middlewares.header.headers.framedeny=true"
+      - "traefik.http.middlewares.header.headers.sslredirect=true"
+      # CORS (Cross-Origin Resource Sharing) headers can be added and configured in a manner similar to the custom headers above. This functionality allows for more advanced security features to quickly be set.
+      - "traefik.http.middlewares.header.headers.accesscontrolallowmethods=GET,OPTIONS,PUT"
+      - "traefik.http.middlewares.header.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.header.headers.accesscontrolmaxage=100" #The accessControlMaxAge indicates how long (in seconds) a preflight request can be cached
+      - "traefik.http.middlewares.header.headers.addvaryheader=true" #The addVaryHeader is used in conjunction with accessControlAllowOriginList to determine whether the vary header should be added or modified to demonstrate that server responses can differ based on the value of the origin header
+      - "traefik.http.middlewares.header.headers.sslRedirect=false" #The sslRedirect is set to true, then only allow https requests.
+      - "traefik.http.middlewares.header.headers.stsIncludeSubdomains=true" #The stsIncludeSubdomains is set to true, the includeSubDomains directive will be appended to the Strict-Transport-Security header.
+      - "traefik.http.middlewares.header.headers.stsPreload=true" #Set stsPreload to true to have the preload flag appended to the Strict-Transport-Security header.
+      - "traefik.http.middlewares.header.headers.forceSTSHeader=true" #Set forceSTSHeader to true, to add the STS header even when the connection is HTTP.
+      - "traefik.http.middlewares.header.headers.contentTypeNosniff=true" #Set contentTypeNosniff to true to add the X-Content-Type-Options header with the value nosniff.
+      - "traefik.http.middlewares.header.headers.browserXssFilter=true" #Set browserXssFilter to true to add the X-XSS-Protection header with the value 1; mode=block.
+      # Set isDevelopment to true when developing. The AllowedHosts, SSL, and STS options can cause some unwanted effects. Usually testing happens on http, not https, and on localhost, not your production domain.
+      # If you would like your development environment to mimic production with complete Host blocking, SSL redirects, and STS headers, leave this as false.
+      - "traefik.http.middlewares.header.headers.isDevelopment=true"
+      - "traefik.http.middlewares.header.inflightreq.amount=10" #The amount option defines the maximum amount of allowed simultaneous in-flight request. The middleware will return an HTTP 429 Too Many Requests if there are already amount requests in progress (based on the same sourceCriterion strategy).
+
+      # Service 
+      - "traefik.http.routers.traefik.service=proxy"
+      - "traefik.http.routers.traefik.middlewares=production-ready"
+      - "traefik.http.middlewares.production-ready.chain.middlewares=prefix,limit,header,breaker,auth,compress,autodetect,prefix,authtraefik,"
+
+      ## Dashboard
+      - "traefik.http.routers.traefik.rule=Host(`traefik.docker.localhost`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.tls.certresolver=certgen"
+      - "traefik.http.routers.traefik.entrypoints=web-secured"
+      - "traefik.http.routers.traefik.middlewares=authtraefik"
+      - "traefik.http.middlewares.authtraefik.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/"
+      - "traefik.http.middlewares.authtraefik.basicauth.headerField=X-WebAuth-User"
+
+      # middleware redirect
+      # Declare middleware called redirect-to-https its a redirect scheme that will force scheme to https
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+
+      # global redirect to https
+      # router will match requests on any host and will catch everything on port 80
+      - "traefik.http.routers.redirs.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.redirs.entrypoints=web"
+      # add the http router to the redirect-to-https middleware
+      - "traefik.http.routers.redirs.middlewares=redirect-to-https"
+
+  whoami:
+    image: emilevauge/whoami:latest
+    networks:
+      - monitor-net
+    labels:
+      - "traefik.backend=whoami"
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.docker.localhost`)"
+      - "traefik.http.routers.whoami.middlewares=auth"
+      - "traefik.http.routers.whoami.entrypoints=web-secured"
+      - "traefik.http.routers.whoami.tls=true"
+      - "traefik.http.routers.whoami.tls.certresolver=certgen"
+      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+  db:
+    image: mysql:5.7
+    ports:
+      - "8702:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+    networks:
+      - monitor-net
+
+  redis:
+    image: redis
+    networks:
+      - monitor-net
+    ports: 
+      - "8701:6379"
+
+  authentication-service:
+    container_name: authentication-service
+    image: keratin/authn-server:latest
+    ports:
+      - "8765:3000"
+    environment:
+      # - DATABASE_URL=mysql://root@db:3001
+      # - REDIS_URL=redis://redis:6379/11
+      - AUTHN_URL=http://authn:3000
+      - APP_DOMAINS=localhost
+      - SECRET_KEY_BASE="test-key"
+      - DATABASE_URL=sqlite3://localhost/dev
+      - REDIS_URL=redis://redis:6379/11
+    depends_on:
+      - redis
+      - db
+    networks:
+      - monitor-net
+    labels:
+      - "traefik.backend=authentication-service"
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentication-service.rule=Host(`authentication-service.docker.localhost`)"
+      - "traefik.http.routers.authentication-service.middlewares=auth"
+      # use generated certificates to enable https on our routes
+      - "traefik.http.routers.authentication-service.entrypoints=web-secured"
+      - "traefik.http.routers.authentication-service.tls=true"
+      - "traefik.http.routers.authentication-service.tls.certresolver=certgen"
+      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+      # this http service called authentication-service will load balance incoming requests between
+      # servers listening on port 8765
+      - traefik.http.services.authentication-service.loadbalancer.server.port=8765
+    #command:  ["./scripts/wait-for-it.sh","db:3001",] 
+
+  storage:
+    image: openzipkin/zipkin-mysql
+    container_name: mysql
+    # Uncomment to expose the storage port for testing
+    ports:
+      - 3306:3306
+
+  # The zipkin process services the UI, and also exposes a POST endpoint that
+  # instrumentation can send trace data to. Scribe is disabled by default.
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    # Environment settings are defined here https://github.com/openzipkin/zipkin/blob/master/zipkin-server/README.md#environment-variables
+    # zipkin configuration https://github.com/openzipkin-attic/docker-zipkin
+    environment:
+      - STORAGE_TYPE=mysql
+      # Point the zipkin at the storage backend
+      - MYSQL_HOST=mysql
+      # Uncomment to enable scribe
+      - SCRIBE_ENABLED=true
+      # Uncomment to enable self-tracing
+      - SELF_TRACING_ENABLED=true
+      # Uncomment to enable debug logging
+      - JAVA_OPTS=-Dlogging.level.zipkin2=DEBUG
+    ports:
+      # Port used for the Zipkin UI and HTTP Api
+      - 9411:9411
+      # Uncomment if you set SCRIBE_ENABLED=true
+      - 9410:9410
+    depends_on:
+      - storage
+  
+  # Adds a cron to process spans since midnight every hour, and all spans each day
+  # This data is served by http://192.168.99.100:8080/dependency
+  #
+  # For more details, see https://github.com/openzipkin/docker-zipkin-dependencies
+  dependencies:
+    image: openzipkin/zipkin-dependencies
+    container_name: dependencies
+    entrypoint: crond -f
+    environment:
+      - STORAGE_TYPE=mysql
+      - MYSQL_HOST=mysql
+      # Add the baked-in username and password for the zipkin-mysql image
+      - MYSQL_USER=zipkin
+      - MYSQL_PASS=zipkin
+      # Uncomment to see dependency processing logs
+      - ZIPKIN_LOG_LEVEL=DEBUG
+      # Uncomment to adjust memory used by the dependencies job
+      - JAVA_OPTS=-verbose:gc -Xms1G -Xmx1G
+    depends_on:
+      - storage
+
+  # user management service for the blackspace platform
+  user-management-service:
+    build:
+      context: .
+      dockerfile: ./user-management-service/Dockerfile.dev
+    container_name: user-management-service
+    ports:
+      - 7777:9100
+    restart: unless-stopped
+    networks:
+      - monitor-net
+      - web
+    depends_on:
+      - reverse-proxy
+      - zipkin
+      - authentication-service
+      - rabbitmq
+      - email-service
+    volumes:
+      - ./user-management-service/:/go/src/github.com/BlackspaceInc/Backend/user-management-service
+    labels:
+      #### Labels define the behavior and rules of the traefik proxy for this container ####
+      - "traefik.backend=user-management-service"
+      - "traefik.enable=true"
+      - "traefik.http.routers.user-management-service.rule=Host(`user-management-service.docker.localhost`)"
+      - "traefik.http.routers.user-management-service.middlewares=auth"
+      # use generated certificates to enable https on our routes
+      - "traefik.http.routers.user-management-service.entrypoints=web-secured"
+      - "traefik.http.routers.user-management-service.tls=true"
+      - "traefik.http.routers.user-management-service.tls.certresolver=certgen"
+      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+      # this http service called user-management-service will load balance incoming requests between
+      # servers listening on port 8081
+      - traefik.http.services.user-management-service.loadbalancer.server.port=7777
+  
+  email-service:
+    build: 
+      context: .
+      dockerfile: ./email-service/Dockerfile.dev
+    container_name: email-service
+    ports:
+      - 7778:9810
+    networks:
+      - monitor-net
+      - web
+    depends_on: 
+      - reverse-proxy
+      - zipkin
+      - rabbitmq
+    labels:
+      #### Labels define the behavior and rules of the traefik proxy for this container ####
+      - "traefik.backend=email-service"
+      - "traefik.enable=true"
+      - "traefik.http.routers.email-service.rule=Host(`email-service.docker.localhost`)"
+      - "traefik.http.routers.email-service.middlewares=auth"
+      # use generated certificates to enable https on our routes
+      - "traefik.http.routers.email-service.entrypoints=web-secured,web"
+      - "traefik.http.routers.email-service.tls=true"
+      - "traefik.http.routers.email-service.tls.certresolver=certgen"
+      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+      # this http service called email-service will load balance incoming requests between
+      # servers listening on port 7778
+      - traefik.http.services.email-service.loadbalancer.server.port=7778
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    env_file: 
+      - ./.env
+    environment:
+      - RABBITMQ_DEFAULT_USER=${AMQP_DEFAULT_USER:-user}
+      - RABBITMQ_DEFAULT_PASS=${AMQP_DEFAULT_PASSWORD:-password}
+    networks:
+      -  monitor-net
+    ports:
+      - 15672:15672
+      - 5672:5672
+    volumes:
+      - 'rabbitmqstats_data:/rabbitmq'
+    labels:
+      #### Labels define the behavior and rules of the traefik proxy for this container ####
+      - "traefik.backend=rabbitmq"
+      - "traefik.enable=true"
+      - "traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.docker.localhost`)"
+      - "traefik.http.routers.rabbitmq.middlewares=auth"
+      # use generated certificates to enable https on our routes
+      - "traefik.http.routers.rabbitmq.entrypoints=web-secured"
+      - "traefik.http.routers.rabbitmq.tls=true"
+      - "traefik.http.routers.rabbitmq.tls.certresolver=certgen"
+      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+      - traefik.http.services.rabbitmq.loadbalancer.server.port=5672
+
+  prometheus:
+    image: prom/prometheus:v2.17.1
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    expose:
+      - 9090
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  alertmanager:
+    image: prom/alertmanager:v0.20.0
+    container_name: alertmanager
+    volumes:
+      - ./monitoring/alertmanager:/etc/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
+    expose:
+      - 9093
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  nodeexporter:
+    image: prom/node-exporter:v0.18.1
+    container_name: nodeexporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    expose:
+      - 9100
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  cadvisor:
+    image: gcr.io/google-containers/cadvisor:v0.34.0
+    container_name: cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
+    restart: unless-stopped
+    expose:
+      - 8080
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  grafana:
+    image: grafana/grafana:6.7.1
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    expose:
+      - 3000
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  pushgateway:
+    image: prom/pushgateway:v1.2.0
+    container_name: pushgateway
+    restart: unless-stopped
+    expose:
+      - 9091
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+  caddy:
+    image: stefanprodan/caddy
+    container_name: caddy
+    ports:
+      - "3000:3000"
+      - "9090:9090"
+      - "9093:9093"
+      - "9091:9091"
+    volumes:
+      - ./monitoring/caddy:/etc/caddy
+    environment:
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+    restart: unless-stopped
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
+networks:
+  monitor-net:
+    driver: bridge
+  web:
+    external: false
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}
+  rabbitmqstats_data:
+    driver: local
+  code_volume:
+    driver: local
+
+# Dashboard (https://localhost:8080)
+# Route
+# Basic auth (login: user | password: password)
+# Let's Encrypt (https://whoami.docker.localhost/)
+# Global HTTP to HTTPS redirection (http://whoami.docker.localhost/)
+# Dashboard [api@internal]
+# Dashboard [api@internal] + Basic auth (login: user | password: password)
+# Dashboard [api@internal] + TLS (https://traefik.docker.localhost/)
+
+# touch acme.json; chmod 600 acme.json
