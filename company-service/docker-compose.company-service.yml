@@ -1,0 +1,14 @@
+version: '3.7'
+
+services:
+  # company management service for the blackspace platform
+  company-service:
+    image: blackspaceinc/profile-management-service:dev
+    container_name: company-management-service
+    ports:
+      - "9898:9898"
+    restart: unless-stopped
+    networks:
+      - net
+    volumes:
+      - '.:/go/src/github.com/BlackspaceInc/company-management-service'

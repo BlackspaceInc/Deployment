@@ -92,11 +92,11 @@ services:
       # autoDetect specifies whether to let the Content-Type header, if it has not been set by the backend, be automatically set to a value derived from the contents of the response.
       - "traefik.http.middlewares.autodetect.contenttype.autodetect=true" 
       # The address option defines the authentication server address.
-      - "traefik.http.middlewares.auth.forwardauth.address=https://authentication-service:8765/"
+      - "traefik.http.middlewares.custom-sign-in.forwardauth.address=https://authentication-service:8765/"
       # The authResponseHeaders option is the list of the headers to copy from the authentication server to the request. 
-      - "traefik.http.middlewares.auth.forwardauth.authResponseHeaders=X-Auth-User, X-Secret"
+      - "traefik.http.middlewares.custom-sign-in.forwardauth.authResponseHeaders=X-Auth-User, X-Secret"
       # Set the trustForwardHeader option to true to trust all the existing X-Forwarded-* headers. 
-      - "traefik.http.middlewares.auth.forwardauth.trustForwardHeader=true" 
+      - "traefik.http.middlewares.custom-sign-in.forwardauth.trustForwardHeader=true"
       # Security related headers (HSTS headers, SSL redirection, Browser XSS filter, etc) can be added and configured in a manner similar to the custom headers above. This functionality allows for some easy security features to quickly be set.
       - "traefik.http.middlewares.header.headers.framedeny=true"
       - "traefik.http.middlewares.header.headers.sslredirect=true"
@@ -119,7 +119,7 @@ services:
       # Service 
       - "traefik.http.routers.traefik.service=proxy"
       - "traefik.http.routers.traefik.middlewares=production-ready"
-      - "traefik.http.middlewares.production-ready.chain.middlewares=prefix,limit,header,breaker,auth,compress,autodetect,prefix,authtraefik,"
+      - "traefik.http.middlewares.production-ready.chain.middlewares=prefix,limit,header,breaker,custom-sign-in,compress,autodetect,prefix,authtraefik,"
 
       ## Dashboard
       - "traefik.http.routers.traefik.rule=Host(`traefik.docker.localhost`)"
@@ -149,11 +149,11 @@ services:
       - "traefik.backend=whoami"
       - "traefik.enable=true"
       - "traefik.http.routers.whoami.rule=Host(`whoami.docker.localhost`)"
-      - "traefik.http.routers.whoami.middlewares=auth"
+      - "traefik.http.routers.whoami.middlewares=custom-sign-in"
       - "traefik.http.routers.whoami.entrypoints=web-secured"
       - "traefik.http.routers.whoami.tls=true"
       - "traefik.http.routers.whoami.tls.certresolver=certgen"
-      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+      - "traefik.http.middlewares.custom-sign-in.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
   db:
     image: mysql:5.7
     ports:
@@ -193,12 +193,12 @@ services:
       - "traefik.backend=authentication-service"
       - "traefik.enable=true"
       - "traefik.http.routers.authentication-service.rule=Host(`authentication-service.docker.localhost`)"
-      - "traefik.http.routers.authentication-service.middlewares=auth"
+      - "traefik.http.routers.authentication-service.middlewares=custom-sign-in"
       # use generated certificates to enable https on our routes
       - "traefik.http.routers.authentication-service.entrypoints=web-secured"
       - "traefik.http.routers.authentication-service.tls=true"
       - "traefik.http.routers.authentication-service.tls.certresolver=certgen"
-      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+      - "traefik.http.middlewares.custom-sign-in.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
       # this http service called authentication-service will load balance incoming requests between
       # servers listening on port 8765
       - traefik.http.services.authentication-service.loadbalancer.server.port=8765
@@ -261,7 +261,7 @@ services:
   user-management-service:
     build:
       context: .
-      dockerfile: ./user-management-service/Dockerfile.dev
+      dockerfile: ./user-management-service/Dockerfile.prod.dev
     container_name: user-management-service
     ports:
       - 7777:9100
@@ -276,18 +276,18 @@ services:
       - rabbitmq
       - email-service
     volumes:
-      - ./user-management-service/:/go/src/github.com/BlackspaceInc/Backend/user-management-service
+      - ./user-management-service/:/go/src/github.com/BlackspaceInc/user-management-service
     labels:
       #### Labels define the behavior and rules of the traefik proxy for this container ####
       - "traefik.backend=user-management-service"
       - "traefik.enable=true"
       - "traefik.http.routers.user-management-service.rule=Host(`user-management-service.docker.localhost`)"
-      - "traefik.http.routers.user-management-service.middlewares=auth"
+      - "traefik.http.routers.user-management-service.middlewares=custom-sign-in"
       # use generated certificates to enable https on our routes
       - "traefik.http.routers.user-management-service.entrypoints=web-secured"
       - "traefik.http.routers.user-management-service.tls=true"
       - "traefik.http.routers.user-management-service.tls.certresolver=certgen"
-      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+      - "traefik.http.middlewares.custom-sign-in.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
       # this http service called user-management-service will load balance incoming requests between
       # servers listening on port 8081
       - traefik.http.services.user-management-service.loadbalancer.server.port=7777
@@ -295,7 +295,7 @@ services:
   email-service:
     build: 
       context: .
-      dockerfile: ./email-service/Dockerfile.dev
+      dockerfile: ./email-service/Dockerfile.prod.dev
     container_name: email-service
     ports:
       - 7778:9810
@@ -311,12 +311,12 @@ services:
       - "traefik.backend=email-service"
       - "traefik.enable=true"
       - "traefik.http.routers.email-service.rule=Host(`email-service.docker.localhost`)"
-      - "traefik.http.routers.email-service.middlewares=auth"
+      - "traefik.http.routers.email-service.middlewares=custom-sign-in"
       # use generated certificates to enable https on our routes
       - "traefik.http.routers.email-service.entrypoints=web-secured,web"
       - "traefik.http.routers.email-service.tls=true"
       - "traefik.http.routers.email-service.tls.certresolver=certgen"
-      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+      - "traefik.http.middlewares.custom-sign-in.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
       # this http service called email-service will load balance incoming requests between
       # servers listening on port 7778
       - traefik.http.services.email-service.loadbalancer.server.port=7778
@@ -341,12 +341,12 @@ services:
       - "traefik.backend=rabbitmq"
       - "traefik.enable=true"
       - "traefik.http.routers.rabbitmq.rule=Host(`rabbitmq.docker.localhost`)"
-      - "traefik.http.routers.rabbitmq.middlewares=auth"
+      - "traefik.http.routers.rabbitmq.middlewares=custom-sign-in"
       # use generated certificates to enable https on our routes
       - "traefik.http.routers.rabbitmq.entrypoints=web-secured"
       - "traefik.http.routers.rabbitmq.tls=true"
       - "traefik.http.routers.rabbitmq.tls.certresolver=certgen"
-      - "traefik.http.middlewares.auth.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
+      - "traefik.http.middlewares.custom-sign-in.basicauth.users=user:$$apr1$$q8eZFHjF$$Fvmkk//V6Btlaf2i/ju5n/" # user/password
       - traefik.http.services.rabbitmq.loadbalancer.server.port=5672
 
   prometheus:
@@ -487,11 +487,11 @@ volumes:
 
 # Dashboard (https://localhost:8080)
 # Route
-# Basic auth (login: user | password: password)
+# Basic custom-sign-in (login: user | password: password)
 # Let's Encrypt (https://whoami.docker.localhost/)
 # Global HTTP to HTTPS redirection (http://whoami.docker.localhost/)
 # Dashboard [api@internal]
-# Dashboard [api@internal] + Basic auth (login: user | password: password)
+# Dashboard [api@internal] + Basic custom-sign-in (login: user | password: password)
 # Dashboard [api@internal] + TLS (https://traefik.docker.localhost/)
 
 # touch acme.json; chmod 600 acme.json

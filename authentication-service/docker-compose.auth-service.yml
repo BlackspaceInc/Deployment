@@ -1,0 +1,42 @@
+version: '3.7'
+
+services:          
+  db:
+    image: mysql:latest
+    ports:
+      - "8702:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+    networks:
+      - net
+
+  redis:
+    image: redis
+    ports: 
+      - "8701:6379"
+    networks:
+      - net
+
+  # authentication service for the blackspace platform
+  authentication-service:
+    container_name: authentication-service #${AUTH_SERVICE_NAME}
+    image: keratin/authn-server:latest
+    ports:
+      -  "8404:3000" # ${AUTHN_PORT}:3000
+    environment:
+      # development db urls should be of the following forms DATABASE_URL=mysql://root@db:3001 || 
+      # DATABASE_URL=sqlite3://:memory:?mode=memory\&cache=shared #sqlite3://localhost/dev
+      - AUTHN_URL=http://localhost:8080 #${AUTHN_PRIVATE_BASE_URL}:${AUTHN_PORT}
+      - APP_DOMAINS=localhost #${AUTHN_AUDIENCE}
+      - SECRET_KEY_BASE=test #${AUTHN_SECRET}
+      - DATABASE_URL=postgresql://doadmin:oqshd3sto72yyhgq@test-do-user-6612421-0.a.db.ondigitalocean.com:25060/authentication-service-db?sslmode=require
+      # TODO ensure production readiness
+      - REDIS_URL=redis://redis:6379/11
+      - HTTP_AUTH_USERNAME=blackspaceinc #${AUTHN_USERNAME}
+      - HTTP_AUTH_PASSWORD=blackspaceinc #${AUTHN_PASSWORD}
+    depends_on:
+      - redis
+      - db
+    networks:
+      - net
