@@ -102,11 +102,11 @@ This section should list any major frameworks that you built your project using.
 1. Download Docker Desktop at [docker](https://www.docker.com/products/docker-desktop)
 2. Clone the repo
 ```sh
-  git clone https://github.com/blackspaceinc/project.git
+  git clone https://github.com/BlackspaceInc/Deployment.git
 ```
 3. Spin up the backend services
 ```sh
-  cd project && make up
+  cd Deployment && make up
 ```
 
 

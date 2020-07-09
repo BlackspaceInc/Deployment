@@ -12,8 +12,6 @@ services:
       - rabbitmq
       - zipkin
       - authentication-service
-    volumes:
-      - '.:/go/src/github.com/BlackspaceInc/user-management-service'
     networks:
       - net
   
