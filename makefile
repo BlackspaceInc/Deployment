@@ -11,3 +11,9 @@ up:
 	docker-compose -f $(MONITORING_SERVICE) -f $(AUTH_SERVICE) -f $(COMPANY_SERVICE) -f $(USER_SERVICE) -f $(NETWORKS) config
 	docker-compose -f $(MONITORING_SERVICE) -f $(AUTH_SERVICE) -f $(COMPANY_SERVICE) -f $(USER_SERVICE) -f $(NETWORKS) up --remove-orphans
 
+convert:
+	kompose -f $(MONITORING_SERVICE) -f $(AUTH_SERVICE) -f $(COMPANY_SERVICE) -f $(USER_SERVICE) -f $(NETWORKS) convert && mv *.yaml ./kubernetes
+	cd ./kubernetes && kubectl create -f *.yaml && cd ../
+
+deploy:
+	kompose  -f $(MONITORING_SERVICE) -f $(AUTH_SERVICE) -f $(COMPANY_SERVICE) -f $(USER_SERVICE) -f $(NETWORKS) up
