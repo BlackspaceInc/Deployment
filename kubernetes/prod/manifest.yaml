@@ -14,9 +14,9 @@ items:
     name: authentication-service
   spec:
     ports:
-    - name: "8404"
-      port: 8404
-      targetPort: 3000
+    - name: "3000"
+      port: 3000
+      targetPort: 8404
     selector:
       io.kompose.service: authentication-service
   status:
@@ -123,8 +123,8 @@ items:
   spec:
     selector:
       matchLabels:
-        name: authentication-service
-    replicas: 1
+        io.kompose.service: authentication-service
+    replicas: 3
     strategy: {}
     template:
       metadata:
@@ -175,8 +175,8 @@ items:
   spec:
     selector:
       matchLabels:
-        name: company-management-service
-    replicas: 1
+        io.kompose.service: company-management-service
+    replicas: 3
     strategy: {}
     template:
       metadata:
@@ -212,8 +212,8 @@ items:
   spec:
     selector:
       matchLabels:
-        name: rabbitmq
-    replicas: 1
+        io.kompose.service: rabbitmq
+    replicas: 3
     strategy: {}
     template:
       metadata:
@@ -255,8 +255,8 @@ items:
   spec:
     selector:
       matchLabels:
-        name: redis
-    replicas: 1
+        io.kompose.service: redis
+    replicas: 3
     strategy: {}
     template:
       metadata:
@@ -274,7 +274,10 @@ items:
           name: redis
           ports:
           - containerPort: 6379
-          resources: {}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
         restartPolicy: Always
   status: {}
 - apiVersion: apps/v1
@@ -292,8 +295,8 @@ items:
   spec:
     selector:
       matchLabels:
-        name: user-service
-    replicas: 1
+        io.kompose.service: user-service
+    replicas: 3
     strategy: {}
     template:
       metadata:

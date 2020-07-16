@@ -18,8 +18,10 @@ up_test_env:
 	docker-compose -f $(MONITORING_SERVICE_TEST) -f $(AUTH_SERVICE_TEST) -f $(COMPANY_SERVICE_TEST) -f $(USER_SERVICE_TEST) -f $(NETWORKS_TEST) up --remove-orphans
 	
 convert_prod:
-	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(NETWORKS_PROD) convert -o manifest.yaml && mv *.yaml ./kubernetes
+	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(NETWORKS_PROD) convert -o manifest.yaml && mv *.yaml ./kubernetes/test
 	# && kubectl apply -f manifest.yaml
+deploy:
+	kubectl apply -f ./kubernetes/prod/manifest.yaml
 
 deploy_prod:
 	# kubectl proxy --port=8080 && export KUBERNETES_MASTER=http://127.0.0.1:8080

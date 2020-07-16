@@ -3,3 +3,8 @@ version: '3.7'
 networks:
   net:
     driver: bridge
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}
+  rabbitmqstats_data: {}

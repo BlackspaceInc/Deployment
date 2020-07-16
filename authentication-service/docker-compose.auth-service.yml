@@ -13,11 +13,11 @@ services:
     container_name: authentication-service #${AUTH_SERVICE_NAME}
     image: keratin/authn-server:latest
     ports:
-      -  "8404:3000" # ${AUTHN_PORT}:3000
+      -  "3000:3000" # ${AUTHN_PORT}:3000
     environment:
       # development db urls should be of the following forms DATABASE_URL=mysql://root@db:3001 || 
       # DATABASE_URL=sqlite3://:memory:?mode=memory\&cache=shared #sqlite3://localhost/dev
-      - AUTHN_URL=http://localhost:8404 #${AUTHN_PRIVATE_BASE_URL}:${AUTHN_PORT}
+      - AUTHN_URL=http://localhost:3000 #${AUTHN_PRIVATE_BASE_URL}:${AUTHN_PORT}
       - APP_DOMAINS=localhost #${AUTHN_AUDIENCE}
       - SECRET_KEY_BASE=test #${AUTHN_SECRET}
       - DATABASE_URL=postgresql://doadmin:oqshd3sto72yyhgq@test-do-user-6612421-0.a.db.ondigitalocean.com:25060/authentication-service-db?sslmode=require
