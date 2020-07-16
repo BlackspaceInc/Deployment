@@ -1,0 +1,30 @@
+version: '3.7'
+
+services:          
+  # user management service for the blackspace platform
+  user-service:
+    image: blackspaceinc/user-management-service:dev
+    container_name: user-service
+    ports:
+      - "9100:9100"
+    restart: always
+    depends_on:
+      - rabbitmq
+      - zipkin
+      - authentication-service
+    networks:
+      - net
+  
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${AMQP_DEFAULT_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${AMQP_DEFAULT_PASSWORD:-guest}
+    ports:
+      - 15672:15672
+      - 5672:5672
+    volumes:
+      - 'rabbitmqstats_data:/rabbitmq'
+    networks:
+      - net

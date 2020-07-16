@@ -1,19 +1,30 @@
-AUTH_SERVICE:=authentication-service/docker-compose.auth-service.yml
-COMPANY_SERVICE:=company-service/docker-compose.company-service.yml
-MONITORING_SERVICE:=monitoring-service/docker-compose.monitoring.yml
-NETWORKS:=networks/docker-compose.networks.yml
-USER_SERVICE:=user-service/docker-compose.user-service.yml
+AUTH_SERVICE_TEST:=authentication-service/docker-compose.auth-service.test.yml
+COMPANY_SERVICE_TEST:=company-service/docker-compose.company-service.test.yml
+MONITORING_SERVICE_TEST:=monitoring-service/docker-compose.monitoring.test.yml
+NETWORKS_TEST:=networks/docker-compose.networks.test.yml
+USER_SERVICE_TEST:=user-service/docker-compose.user-service.test.yml
 
-stop:
+AUTH_SERVICE_PROD=authentication-service/docker-compose.auth-service.yml
+COMPANY_SERVICE_PROD:=company-service/docker-compose.company-service.yml
+MONITORING_SERVICE_PROD:=monitoring-service/docker-compose.monitoring.yml
+NETWORKS_PROD:=networks/docker-compose.networks.yml
+USER_SERVICE_PROD:=user-service/docker-compose.user-service.yml
+
+stop_test_env:
 	docker-compose down
 
-up:
-	docker-compose -f $(MONITORING_SERVICE) -f $(AUTH_SERVICE) -f $(COMPANY_SERVICE) -f $(USER_SERVICE) -f $(NETWORKS) config
-	docker-compose -f $(MONITORING_SERVICE) -f $(AUTH_SERVICE) -f $(COMPANY_SERVICE) -f $(USER_SERVICE) -f $(NETWORKS) up --remove-orphans
+up_test_env:
+	docker-compose -f $(MONITORING_SERVICE_TEST) -f $(AUTH_SERVICE_TEST) -f $(COMPANY_SERVICE_TEST) -f $(USER_SERVICE_TEST) -f $(NETWORKS_TEST) config
+	docker-compose -f $(MONITORING_SERVICE_TEST) -f $(AUTH_SERVICE_TEST) -f $(COMPANY_SERVICE_TEST) -f $(USER_SERVICE_TEST) -f $(NETWORKS_TEST) up --remove-orphans
+	
+convert_prod:
+	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(NETWORKS_PROD) convert -o manifest.yaml && mv *.yaml ./kubernetes
+	# && kubectl apply -f manifest.yaml
 
-convert:
-	kompose -f $(MONITORING_SERVICE) -f $(AUTH_SERVICE) -f $(COMPANY_SERVICE) -f $(USER_SERVICE) -f $(NETWORKS) convert && mv *.yaml ./kubernetes
-	cd ./kubernetes && kubectl create -f *.yaml && cd ../
+deploy_prod:
+	# kubectl proxy --port=8080 && export KUBERNETES_MASTER=http://127.0.0.1:8080
+	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(NETWORKS_PROD) up
 
-deploy:
-	kompose  -f $(MONITORING_SERVICE) -f $(AUTH_SERVICE) -f $(COMPANY_SERVICE) -f $(USER_SERVICE) -f $(NETWORKS) up
+down_prod:
+	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(NETWORKS_PROD) down
+	

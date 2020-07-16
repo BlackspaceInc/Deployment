@@ -7,7 +7,7 @@ services:
     container_name: user-service
     ports:
       - "9100:9100"
-    restart: unless-stopped
+    restart: always
     depends_on:
       - rabbitmq
       - zipkin
@@ -24,7 +24,5 @@ services:
     ports:
       - 15672:15672
       - 5672:5672
-    volumes:
-      - 'rabbitmqstats_data:/rabbitmq'
     networks:
       - net
