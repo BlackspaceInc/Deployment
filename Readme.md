@@ -33,10 +33,10 @@
     <img src="images/logo.png" alt="Logo" width="80" height="80">
   </a>
 
-  <h3 align="center">Best-README-Template</h3>
+  <h3 align="center">Blacspace Platform Deployment Readme</h3>
 
   <p align="center">
-    An awesome README template to jumpstart your projects!
+    Readme defines/describes all kubernetes deployment specific use cases for the blackspace platform
     <br />
     <a href="https://github.com/BlackspaceInc/Deployment"><strong>Explore the docs »</strong></a>
     <br />

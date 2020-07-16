@@ -14,9 +14,9 @@ items:
     name: authentication-service
   spec:
     ports:
-    - name: "3000"
-      port: 3000
-      targetPort: 8404
+    - name: "8404"
+      port: 8404
+      targetPort: 3000
     selector:
       io.kompose.service: authentication-service
   status:
@@ -80,8 +80,8 @@ items:
     name: redis
   spec:
     ports:
-    - name: "8701"
-      port: 8701
+    - name: "6379"
+      port: 6379
       targetPort: 6379
     selector:
       io.kompose.service: redis
@@ -314,6 +314,7 @@ items:
           name: user-service
           ports:
           - containerPort: 9100
+          imagePullPolicy: "Always"
           resources: {}
         restartPolicy: Always
   status: {}

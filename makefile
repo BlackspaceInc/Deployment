@@ -11,22 +11,32 @@ NETWORKS_PROD:=networks/docker-compose.networks.yml
 USER_SERVICE_PROD:=user-service/docker-compose.user-service.yml
 
 stop_test_env:
+	@echo "stopping locally running containers"
 	docker-compose down
 
 up_test_env:
+	@echo "starting containers via docker-compose locally"
 	docker-compose -f $(MONITORING_SERVICE_TEST) -f $(AUTH_SERVICE_TEST) -f $(COMPANY_SERVICE_TEST) -f $(USER_SERVICE_TEST) -f $(NETWORKS_TEST) config
 	docker-compose -f $(MONITORING_SERVICE_TEST) -f $(AUTH_SERVICE_TEST) -f $(COMPANY_SERVICE_TEST) -f $(USER_SERVICE_TEST) -f $(NETWORKS_TEST) up --remove-orphans
 	
 convert_prod:
+	@echo "creating manifest file from compose doc."
 	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(NETWORKS_PROD) convert -o manifest.yaml && mv *.yaml ./kubernetes/test
-	# && kubectl apply -f manifest.yaml
+
 deploy:
+	# kubectl proxy --port=8080 && export KUBERNETES_MASTER=http://127.0.0.1:8080
+	@echo "deploying production manifest file"
 	kubectl apply -f ./kubernetes/prod/manifest.yaml
 
 deploy_prod:
-	# kubectl proxy --port=8080 && export KUBERNETES_MASTER=http://127.0.0.1:8080
 	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(NETWORKS_PROD) up
 
 down_prod:
 	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(NETWORKS_PROD) down
+
+delete_all:
+	kubectl delete --all pods --namespace=default
+	kubectl delete --all deployments --namespace=default
+	kubectl delete --all namespaces
+
 	
