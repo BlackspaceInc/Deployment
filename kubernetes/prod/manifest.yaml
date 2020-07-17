@@ -25,6 +25,30 @@ items:
   kind: Service
   metadata:
     annotations:
+      NAME: frontend-service
+      kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+        -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+        -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+        convert -o manifest.yaml
+      kompose.version: 1.19.0 (f63a961c)
+    creationTimestamp: null
+    labels:
+      io.kompose.service: frontend-service
+    name: frontend-service
+  spec:
+    ports:
+    - name: "8000"
+      port: 8000
+      targetPort: 80
+    selector:
+      io.kompose.service: frontend-service
+    type: LoadBalancer
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
       kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
         -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
         -f networks/docker-compose.networks.yml convert -o manifest.yaml
@@ -194,6 +218,49 @@ items:
           name: company-management-service
           ports:
           - containerPort: 9898
+          resources: {}
+        restartPolicy: Always
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      NAME: frontend-service
+      kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+        -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+        -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+        convert -o manifest.yaml
+      kompose.service.type: LoadBalancer
+      kompose.version: 1.19.0 (f63a961c)
+    creationTimestamp: null
+    labels:
+      io.kompose.service: frontend-service
+    name: frontend-service
+  spec:
+    selector:
+      matchLabels:
+        io.kompose.service: frontend-service
+    replicas: 1
+    strategy: {}
+    template:
+      metadata:
+        annotations:
+          NAME: frontend-service
+          kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+            -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+            -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+            convert -o manifest.yaml
+          kompose.service.type: LoadBalancer
+          kompose.version: 1.19.0 (f63a961c)
+        creationTimestamp: null
+        labels:
+          io.kompose.service: frontend-service
+      spec:
+        containers:
+        - image: blackspaceinc/frontend-service:dev
+          name: frontend-service
+          ports:
+          - containerPort: 80
           resources: {}
         restartPolicy: Always
   status: {}
