@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+      -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+      -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+      convert
+    kompose.version: 1.19.0 (f63a961c)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redis
+  name: redis
+spec:
+  selector:
+    matchLabels:
+      io.kompose.service: redis
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+          -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+          -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+          convert
+        kompose.version: 1.19.0 (f63a961c)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: redis
+    spec:
+      containers:
+      - image: redis
+        name: redis
+        ports:
+        - containerPort: 6379
+        resources: {}
+      restartPolicy: Always
+status: {}

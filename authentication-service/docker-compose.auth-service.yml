@@ -27,5 +27,13 @@ services:
       - HTTP_AUTH_PASSWORD=blackspaceinc #${AUTHN_PASSWORD}
     depends_on:
       - redis
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: any
+    labels:
+      NAME: "authentication-service"
+      kompose.service.type: NodePort
+    restart: always
     networks:
       - net

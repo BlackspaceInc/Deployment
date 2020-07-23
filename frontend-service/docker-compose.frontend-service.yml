@@ -2,15 +2,18 @@ version: '3.7'
 
 services:
     frontend-service:
+      image: blackspaceinc/frontend-service:staging
       container_name: frontend-service
-      build:
-        context: .
-        dockerfile: Dockerfile
       ports:
         - "8000:80"
       labels:
         NAME: "frontend-service"
         kompose.service.type: LoadBalancer
+      deploy:
+        replicas: 2
+        restart_policy:
+          condition: any
+      restart: always
       networks:
         - net
       depends_on:

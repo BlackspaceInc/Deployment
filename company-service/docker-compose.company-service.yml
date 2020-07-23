@@ -7,6 +7,13 @@ services:
     container_name: company-management-service
     ports:
       - "9898:9898"
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: any
     restart: always
+    labels:
+      NAME: "company-management-service"
+      kompose.service.type: NodePort
     networks:
       - net

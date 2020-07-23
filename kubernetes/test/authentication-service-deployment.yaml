@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    NAME: authentication-service
+    kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+      -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+      -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+      convert
+    kompose.service.type: NodePort
+    kompose.version: 1.19.0 (f63a961c)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: authentication-service
+  name: authentication-service
+spec:
+  replicas: 2
+  strategy: {}
+  selector:
+      matchLabels:
+        io.kompose.service: authentication-service
+  template:
+    metadata:
+      annotations:
+        NAME: authentication-service
+        kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+          -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+          -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+          convert
+        kompose.service.type: NodePort
+        kompose.version: 1.19.0 (f63a961c)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: authentication-service
+    spec:
+      containers:
+      - env:
+        - name: APP_DOMAINS
+          value: localhost
+        - name: AUTHN_URL
+          value: http://localhost:8404
+        - name: DATABASE_URL
+          value: postgresql://doadmin:oqshd3sto72yyhgq@test-do-user-6612421-0.a.db.ondigitalocean.com:25060/authentication-service-db?sslmode=require
+        - name: HTTP_AUTH_PASSWORD
+          value: blackspaceinc
+        - name: HTTP_AUTH_USERNAME
+          value: blackspaceinc
+        - name: REDIS_URL
+          value: redis://redis:6379/11
+        - name: SECRET_KEY_BASE
+          value: test
+        image: keratin/authn-server:latest
+        name: authentication-service
+        ports:
+        - containerPort: 3000
+        resources: {}
+      restartPolicy: Always
+status: {}

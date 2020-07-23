@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    NAME: company-management-service
+    kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+      -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+      -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+      convert
+    kompose.service.type: LoadBalancer
+    kompose.version: 1.19.0 (f63a961c)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: company-management-service
+  name: company-management-service
+spec:
+  selector:
+    matchLabels:
+      io.kompose.service: company-management-service
+  replicas: 2
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        NAME: company-management-service
+        kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+          -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+          -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+          convert
+        kompose.service.type: LoadBalancer
+        kompose.version: 1.19.0 (f63a961c)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: company-management-service
+    spec:
+      containers:
+      - image: blackspaceinc/profile-management-service:dev
+        name: company-management-service
+        ports:
+        - containerPort: 9898
+        resources: {}
+      restartPolicy: Always
+status: {}

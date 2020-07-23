@@ -240,7 +240,7 @@ items:
     selector:
       matchLabels:
         io.kompose.service: frontend-service
-    replicas: 1
+    replicas: 2
     strategy: {}
     template:
       metadata:
@@ -257,8 +257,9 @@ items:
           io.kompose.service: frontend-service
       spec:
         containers:
-        - image: blackspaceinc/frontend-service:dev
+        - image: blackspaceinc/frontend-service:staging
           name: frontend-service
+          imagePullPolicy: "Always"
           ports:
           - containerPort: 80
           resources: {}

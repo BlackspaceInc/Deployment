@@ -25,6 +25,18 @@ convert_to_kubernetes:
 	@echo "creating manifest file from compose doc."
 	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(FRONTEND_SERVICE_PROD) -f $(NETWORKS_PROD) convert -o manifest.yaml && mv *.yaml ./kubernetes/test
 
+gen_manifests:
+	@echo "creating manifest file from compose doc."
+	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(FRONTEND_SERVICE_PROD) -f $(NETWORKS_PROD) convert && mv *.yaml ./kubernetes/test
+
+gen_namespaces:
+	cd ./kubernetes/namespace && kubectl apply -f ./
+	cd ../../
+
+deploy_manifests: gen_namespaces
+	@echo "creating manifest file from compose doc."
+	cd ./kubernetes/test && kubectl apply -f ./
+
 deploy:
 	# kubectl proxy --port=8080 && export KUBERNETES_MASTER=http://127.0.0.1:8080
 	@echo "deploying production manifest file"
@@ -46,8 +58,9 @@ down_prod:
 	kompose -f $(AUTH_SERVICE_PROD) -f $(COMPANY_SERVICE_PROD) -f $(USER_SERVICE_PROD) -f $(NETWORKS_PROD) down
 
 delete_all:
-	kubectl delete --all pods --namespace=default
-	kubectl delete --all deployments --namespace=default
+	kubectl delete --all pods
+	kubectl delete --all services
+	kubectl delete --all deployments
 	kubectl delete --all namespaces
 
 linkerd-dashboard:

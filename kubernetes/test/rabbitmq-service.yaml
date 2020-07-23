@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose -f authentication-service/docker-compose.auth-service.yml
+      -f company-service/docker-compose.company-service.yml -f user-service/docker-compose.user-service.yml
+      -f frontend-service/docker-compose.frontend-service.yml -f networks/docker-compose.networks.yml
+      convert
+    kompose.version: 1.19.0 (f63a961c)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: rabbitmq
+  name: rabbitmq
+spec:
+  ports:
+  - name: "15672"
+    port: 15672
+    targetPort: 15672
+  - name: "5672"
+    port: 5672
+    targetPort: 5672
+  selector:
+    io.kompose.service: rabbitmq
+status:
+  loadBalancer: {}
